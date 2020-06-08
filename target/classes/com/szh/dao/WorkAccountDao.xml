@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.szh.dao.WorkAccountDao">
+
+    <resultMap id="containTN" type="com.szh.domain.WorkAccount">
+        <id column="id" jdbcType="INTEGER" property="id" />
+        <result column="uid" jdbcType="INTEGER" property="uid" />
+        <result column="schedule" property="schedule"/>
+        <result column="date" jdbcType="DATE" property="date" />
+        <result column="typeId" jdbcType="INTEGER" property="typeId" />
+        <result column="startTime"  property="startTime" />
+        <result column="endTime"  property="endTime" />
+        <result property="elapsedTime" jdbcType="TIME" column="elapsedTime"/>
+        <association property="workType" javaType="com.szh.domain.WorkType">
+            <id column="workId" property="workId"></id>
+            <result column="workType" property="workType"></result>
+        </association>
+    </resultMap>
+
+    <select id="findAllWorkAccount" resultType="workAccount">
+        select * from workaccount
+    </select>
+
+    <select id="findContainTN" resultMap="containTN">
+        SELECT a.*,t.*,TIMEDIFF(a.endTime,a.startTime) AS elapsedTime FROM workaccount a,worktype t WHERE a.typeId=t.workId ORDER BY a.date DESC,a.startTime ASC
+    </select>
+
+    <select id="findContainTNById" resultMap="containTN">
+        SELECT a.*,t.*,TIMEDIFF(a.endTime,a.startTime) AS elapsedTime FROM workaccount a,worktype t WHERE a.uid=#{uid} and a.typeId=t.workId ORDER BY a.date DESC,a.startTime ASC
+    </select>
+
+    <insert id="addWork" parameterType="workAccount">
+        insert into workaccount(uid,schedule,date,typeId,startTime,endTime)
+         values(#{uid},#{schedule},#{date},#{typeId},#{startTime},#{endTime})
+    </insert>
+
+    <update id="updateWork" parameterType="workAccount">
+        update workaccount set schedule=#{schedule},date=#{date},typeId=#{typeId},startTime=#{startTime},endTime=#{endTime} where id=#{id}
+    </update>
+
+    <delete id="delWork">
+        delete from workaccount where id=#{id}
+    </delete>
+
+    <select id="findById" resultType="workAccount">
+        select * from workaccount where id=#{id}
+    </select>
+
+    <select id="total" resultType="total">
+        SELECT a.typeId,t.workType AS typeName,
+        SEC_TO_TIME(SUM(TIME_TO_SEC(TIMEDIFF(endTime,startTime))))AS total
+        FROM `workaccount` a,`worktype` t WHERE a.uid=3 AND a.typeId=t.workId
+        GROUP BY a.typeId
+    </select>
+
+    <select id="totalForWeek" resultType="total">
+        SELECT a.typeId,t.workType AS typeName,
+        SEC_TO_TIME(SUM(TIME_TO_SEC(TIMEDIFF(endTime,startTime))))AS total
+        FROM `workaccount` a,`worktype` t WHERE a.uid=#{id} AND a.typeId=t.workId
+        AND DATE_SUB(CURDATE(), INTERVAL 7 DAY) &lt;= DATE(a.date) GROUP BY a.typeId
+    </select>
+
+    <select id="totalForMonth" resultType="total">
+        SELECT a.typeId,t.workType as typeName,
+        SEC_TO_TIME(SUM(TIME_TO_SEC(TIMEDIFF(endTime,startTime))))as total
+        FROM `workaccount` a,`worktype` t WHERE a.uid=#{id} AND a.typeId=t.workId
+        AND DATE_SUB(CURDATE(),INTERVAL 1 MONTH) &lt;= DATE(a.date) GROUP BY a.typeId
+    </select>
+
+    <select id="totalAll" resultType="total">
+        SELECT  '工作' typeName , IFNULL (SEC_TO_TIME(SUM(TIME_TO_SEC(TIMEDIFF(endTime,startTime)))),'00:00')as total FROM `workaccount` WHERE uid=#{id}
+    </select>
+
+    <select id="totalAllWeek" resultType="total">
+        SELECT  '工作' typeName , IFNULL (SEC_TO_TIME(SUM(TIME_TO_SEC(TIMEDIFF(endTime,startTime)))),'00:00')as total FROM `workaccount` WHERE  DATE_SUB(CURDATE(), INTERVAL 7 DAY) &lt;= DATE(DATE) and uid=#{id}
+    </select>
+
+    <select id="totalAllMonth" resultType="total">
+        SELECT  '工作' typeName , IFNULL (SEC_TO_TIME(SUM(TIME_TO_SEC(TIMEDIFF(endTime,startTime)))),'00:00')as total FROM `workaccount` WHERE  DATE_SUB(CURDATE(), INTERVAL 1 MONTH) &lt;= DATE(DATE) and uid=#{id}
+    </select>
+
+    <select id="fuzzySelect" parameterType="workAccount" resultMap="containTN">
+        SELECT a.*,t.*,TIMEDIFF(a.endTime,a.startTime) AS elapsedTime FROM workaccount a,worktype t
+        <where>
+            uid=#{uid} and a.typeId=t.workId
+            <if test="schedule!=null">
+                and schedule like "%"#{schedule}"%"
+            </if>
+            <if test="elapsedTime!=null">
+                and TIMEDIFF(a.endTime,a.startTime)>=SEC_TO_TIME(#{elapsedTime}*3600)
+            </if>
+             ORDER BY a.date DESC,a.startTime ASC
+        </where>
+    </select>
+
+</mapper>
